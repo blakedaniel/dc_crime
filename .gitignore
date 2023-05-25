@@ -1,0 +1,9 @@
+# tutorial files
+examples
+
+# environment
+.venv
+.python-version
+.prefectignore
+.prefect
+__pycache__
