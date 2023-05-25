@@ -70,4 +70,5 @@ def extract():
     print(extractCrimeReports(2017, currentYear()))
     return extractCrimeReports(2017, currentYear())
 
-# print(extract())
+if __name__ == '__main__':
+    extract()
