@@ -3,13 +3,16 @@ from prefect import flow, task
 from prefect.tasks import task_input_hash
 from prefect.task_runners import SequentialTaskRunner
 from Common import generateFlowRunName, generateTaskRunName, currentYear
-from Common import convertToDataFrame
+from Common import convertToDataFrame, data_path
 import datetime
+import argparse
+
+# TODO: add cursor to extractCrimeReports() to allow for incremental extraction
 
 @task(name='Crime Report Year ID Curation',
       task_run_name=generateTaskRunName,
       tags=['datetime'])
-def computeYearIds(start_year:int, end_year:int):
+def compute_year_id(start_year:int=2017, end_year:int=currentYear.fn()):
     """
     Turn years of interest into ids relevant for DC crime report
     URL, which starts at 0 for 2017 and increases by 1 for each
@@ -35,7 +38,7 @@ def computeYearIds(start_year:int, end_year:int):
       cache_key_fn=task_input_hash,
       cache_expiration=datetime.timedelta(hours=24)
     )
-def callCrimeReportsApi(year_ids:tuple):
+def call_crime_reports_api(year_ids:tuple):
     results = []
     for year_id in year_ids: 
         url = f'https://maps2.dcgis.dc.gov/dcgis/rest/services/FEEDS/MPD/MapServer/{year_id}/query?where=1%3D1&outFields=*&outSR=4326&f=json'
@@ -48,7 +51,7 @@ def callCrimeReportsApi(year_ids:tuple):
 
 @flow(name='Crime Report Extraction',
       flow_run_name=generateFlowRunName)
-def extractCrimeReports(start_year:int=2017, end_year:int=2023):
+def extract_crime_reports(start_year:int=2017, end_year:int=currentYear.fn()):
     """
     Flow that exracts the crime report from DC's online database, starting from as yearl
     as 2017 and going to to present time.
@@ -60,15 +63,22 @@ def extractCrimeReports(start_year:int=2017, end_year:int=2023):
     Returns:
         _type_: Polar.DataFrame
     """
-    year_ids = computeYearIds(start_year, end_year)
-    results = callCrimeReportsApi(year_ids)
+    year_ids = compute_year_id(start_year, end_year)
+    results = call_crime_reports_api(year_ids)
     results = convertToDataFrame(results)
     return results
 
+
+# move everything from below into a seperate main flow file 
 @flow
-def extract():
-    print(extractCrimeReports(2017, currentYear()))
-    return extractCrimeReports(2017, currentYear())
+def extract_crime_main(start_year:int=2017, end_year:int=currentYear.fn()):
+    extract_crime_reports(start_year, end_year).write_csv(data_path / 
+                                                        f'dc_crimes_{start_year}_{end_year}.csv')
+    return data_path / f'dc_crimes_{start_year}_{end_year}.csv'
 
 if __name__ == '__main__':
-    extract()
+    parser = argparse.ArgumentParser(description='DC Crimes Data Extraction')
+    parser.add_argument('--sy', type=int, help='Specify start year')
+    parser.add_argument('--ey', type=int, help='Specify end year')
+    args = parser.parse_args()
+    extract_crime_main(args.sy or currentYear.fn(), args.ey or currentYear.fn())
