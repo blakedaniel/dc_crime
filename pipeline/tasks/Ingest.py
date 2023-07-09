@@ -32,10 +32,10 @@ def write_acs_econ_report_to_db():
       cache_expiration=datetime.timedelta(hours=24))
 def write_acs_demo_report_to_db():
     df = pd.read_csv(data_path / 'acsDemo.csv')
-    df.to_sql('acs_econ', uri, if_exists='replace', index=False)
+    df.to_sql('acs_demo', uri, if_exists='replace', index=False)
 
 @flow(name='Ingest Crime Reports to Database')
-def main(start_year:int=currentYear.fn(), end_year:int=currentYear.fn()):
+def main(start_year:int=2017, end_year:int=currentYear.fn()):
     write_crime_reports_to_db(start_year, end_year)
     write_acs_econ_report_to_db()
     write_acs_demo_report_to_db()
@@ -45,4 +45,4 @@ if __name__ == '__main__':
     parser.add_argument('--sy', type=int, help='Specify start year')
     parser.add_argument('--ey', type=int, help='Specify end year')
     args = parser.parse_args()
-    main(args.sy or currentYear.fn(), args.ey or currentYear.fn())
+    main(args.sy or 2017, args.ey or currentYear.fn())
